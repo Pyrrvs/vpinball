@@ -45,7 +45,7 @@ jobs:
           set(VPX_TEST_SOURCES ${VPX_SOURCES})
           list(REMOVE_ITEM VPX_TEST_SOURCES "src/core/main.cpp")
 
-          add_executable(vpxtest WIN32
+          add_executable(vpxtest
              ${VPX_TEST_SOURCES}
 
              src/core/stdafx.cpp
@@ -171,8 +171,6 @@ jobs:
              third-party/include/hidapi/windows/hid.cpp
              third-party/include/imgui/imgui_impl_sdl3.cpp
 
-             tests/vpx-test.cpp
-             tests/test-base-render.cpp
              tests/test-plugin-arrays.cpp
           )
 
@@ -242,5 +240,4 @@ jobs:
       - name: Run tests
         run: |
           cd build/Debug
-          ./VPXTest_BGFX64.exe --test-case="Plugin 2D string and bool array marshalling" --no-breaks 2>&1 || true
-          cat test-assets/test_results.txt 2>/dev/null || echo "No test results file found"
+          ./VPXTest_BGFX64.exe --test-case="Plugin 2D string and bool array marshalling" --no-breaks

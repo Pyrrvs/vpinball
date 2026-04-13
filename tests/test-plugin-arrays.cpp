@@ -1,7 +1,8 @@
 // license:GPLv3+
 
 #include "core/stdafx.h"
-#include "vpx-test.h"
+
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
 #include "core/DynamicScript.h"

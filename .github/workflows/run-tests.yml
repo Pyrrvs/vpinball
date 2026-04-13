@@ -1,0 +1,242 @@
+name: run-tests
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Run plugin array tests
+    runs-on: windows-2025
+    steps:
+      - uses: microsoft/setup-msbuild@v3
+      - run: |
+          /c/msys64/usr/bin/bash.exe -l -c "pacman -S --noconfirm make diffutils yasm bison git autoconf automake libtool"
+          /c/msys64/usr/bin/bash.exe -l -c "pacman -S --noconfirm mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-libwinpthread mingw-w64-ucrt-x86_64-libiconv mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-tools"
+      - uses: actions/checkout@v6
+      - name: Calculate external cache hash
+        run: |
+          echo "EXT_HASH=$(cat platforms/config.sh platforms/windows-x64/external.sh | sha256sum | cut -c1-12)" >> $GITHUB_ENV
+      - name: Restore external cache
+        id: cache
+        uses: actions/cache/restore@v5
+        with:
+          path: external
+          key: windows-x64-Debug-external-${{ env.EXT_HASH }}
+          restore-keys: |
+            windows-x64-Debug-external-
+            windows-x64-Release-external-
+      - name: Build external deps
+        run: |
+          BUILD_TYPE=Debug ./platforms/windows-x64/external.sh
+      - name: Configure and build test binary
+        run: |
+          cp make/CMakeLists_bgfx-windows-x64.txt CMakeLists.txt
+
+          # Append a test target that reuses the main target's sources
+          cat >> CMakeLists.txt << 'CMAKEEOF'
+
+          # --- Test target ---
+          set(VPX_TEST_SOURCES ${VPX_SOURCES})
+          list(REMOVE_ITEM VPX_TEST_SOURCES "src/core/main.cpp")
+
+          add_executable(vpxtest WIN32
+             ${VPX_TEST_SOURCES}
+
+             src/core/stdafx.cpp
+             src/core/stdafx.h
+             src/core/vpinball.idl
+
+             src/input/OpenPinDevHandler.h
+             src/input/OpenPinDevHandler.cpp
+             src/input/XRInputHandler.h
+             src/renderer/XRGraphicBackend.h
+             src/renderer/XRD3D11Backend.h
+             src/renderer/XRD3D12Backend.h
+             src/renderer/XRVulkanBackend.h
+
+             src/utils/StackTrace.cpp
+             src/utils/StackTrace.h
+             src/utils/MemoryStatus.cpp
+             src/utils/MemoryStatus.h
+             src/utils/BlackBox.cpp
+             src/utils/BlackBox.h
+             src/utils/CrashHandler.cpp
+             src/utils/CrashHandler.h
+
+             src/ui/win/DragPointDialogs.h
+             src/ui/win/DragPointDialogs.cpp
+             src/ui/win/paintsur.cpp
+             src/ui/win/paintsur.h
+             src/ui/win/worker.cpp
+             src/ui/win/worker.h
+             src/ui/win/resource.h
+             src/ui/win/Debugger.cpp
+             src/ui/win/Debugger.h
+             src/ui/win/vpinball.rc
+
+             src/ui/win/dialogs/AboutDialog.cpp
+             src/ui/win/dialogs/AboutDialog.h
+             src/ui/win/dialogs/CollectionManagerDialog.cpp
+             src/ui/win/dialogs/CollectionManagerDialog.h
+             src/ui/win/dialogs/DimensionDialog.cpp
+             src/ui/win/dialogs/DimensionDialog.h
+             src/ui/win/dialogs/DrawingOrderDialog.cpp
+             src/ui/win/dialogs/DrawingOrderDialog.h
+             src/ui/win/dialogs/EditorOptionsDialog.cpp
+             src/ui/win/dialogs/EditorOptionsDialog.h
+             src/ui/win/dialogs/ImageDialog.cpp
+             src/ui/win/dialogs/ImageDialog.h
+             src/ui/win/dialogs/PlayerOptionsDialog.cpp
+             src/ui/win/dialogs/PlayerOptionsDialog.h
+             src/ui/win/dialogs/LayersListDialog.cpp
+             src/ui/win/dialogs/LayersListDialog.h
+             src/ui/win/dialogs/MaterialDialog.cpp
+             src/ui/win/dialogs/MaterialDialog.h
+             src/ui/win/dialogs/NotesDialog.cpp
+             src/ui/win/dialogs/NotesDialog.h
+             src/ui/win/dialogs/ScriptErrorDialog.cpp
+             src/ui/win/dialogs/ScriptErrorDialog.h
+             src/ui/win/dialogs/RenderProbeDialog.cpp
+             src/ui/win/dialogs/RenderProbeDialog.h
+             src/ui/win/dialogs/PhysicsOptionsDialog.cpp
+             src/ui/win/dialogs/PhysicsOptionsDialog.h
+             src/ui/win/dialogs/WhereUsedDialog.cpp
+             src/ui/win/dialogs/WhereUsedDialog.h
+             src/ui/win/dialogs/SearchSelectDialog.cpp
+             src/ui/win/dialogs/SearchSelectDialog.h
+             src/ui/win/dialogs/SoundDialog.cpp
+             src/ui/win/dialogs/SoundDialog.h
+             src/ui/win/dialogs/TableInfoDialog.cpp
+             src/ui/win/dialogs/TableInfoDialog.h
+             src/ui/win/dialogs/ToolbarDialog.cpp
+             src/ui/win/dialogs/ToolbarDialog.h
+             src/ui/win/dialogs/VPXLoadFileProgressBar.cpp
+             src/ui/win/dialogs/VPXLoadFileProgressBar.h
+             src/ui/win/dialogs/VPXSaveFileProgressBar.cpp
+             src/ui/win/dialogs/VPXSaveFileProgressBar.h
+
+             src/ui/win/properties/BackglassCameraProperty.cpp
+             src/ui/win/properties/BackglassVisualsProperty.cpp
+             src/ui/win/properties/BallPhysicsProperty.cpp
+             src/ui/win/properties/BallVisualsProperty.cpp
+             src/ui/win/properties/BumperPhysicsProperty.cpp
+             src/ui/win/properties/BumperVisualsProperty.cpp
+             src/ui/win/properties/DecalVisualsProperty.cpp
+             src/ui/win/properties/DispreelStateProperty.cpp
+             src/ui/win/properties/DispreelVisualsProperty.cpp
+             src/ui/win/properties/DragpointVisualsProperty.cpp
+             src/ui/win/properties/FlasherVisualsProperty.cpp
+             src/ui/win/properties/FlipperPhysicsProperty.cpp
+             src/ui/win/properties/FlipperVisualsProperty.cpp
+             src/ui/win/properties/GatePhysicsProperty.cpp
+             src/ui/win/properties/GateVisualsProperty.cpp
+             src/ui/win/properties/HitTargetPhysicsProperty.cpp
+             src/ui/win/properties/HitTargetVisualsProperty.cpp
+             src/ui/win/properties/KickerPhysicsProperty.cpp
+             src/ui/win/properties/KickerVisualsProperty.cpp
+             src/ui/win/properties/LightseqStatesProperty.cpp
+             src/ui/win/properties/LightStatesProperty.cpp
+             src/ui/win/properties/LightVisualsProperty.cpp
+             src/ui/win/properties/PartGroupVisualsProperty.cpp
+             src/ui/win/properties/PlungerPhysicsProperty.cpp
+             src/ui/win/properties/PlungerVisualsProperty.cpp
+             src/ui/win/properties/PrimitivePhysicsProperty.cpp
+             src/ui/win/properties/PrimitivePositionProperty.cpp
+             src/ui/win/properties/PrimitiveVisualsProperty.cpp
+             src/ui/win/properties/PropertyDialog.cpp
+             src/ui/win/properties/RampPhysicsProperty.cpp
+             src/ui/win/properties/RampVisualsProperty.cpp
+             src/ui/win/properties/RubberPhysicsProperty.cpp
+             src/ui/win/properties/RubberVisualsProperty.cpp
+             src/ui/win/properties/SpinnerPhysicsProperty.cpp
+             src/ui/win/properties/SpinnerVisualsProperty.cpp
+             src/ui/win/properties/TableAudioProperty.cpp
+             src/ui/win/properties/TableLightsProperty.cpp
+             src/ui/win/properties/TablePhysicsProperty.cpp
+             src/ui/win/properties/TableVisualsProperty.cpp
+             src/ui/win/properties/TextboxVisualsProperty.cpp
+             src/ui/win/properties/TriggerPhysicsProperty.cpp
+             src/ui/win/properties/TriggerVisualsProperty.cpp
+             src/ui/win/properties/WallPhysicsProperty.cpp
+             src/ui/win/properties/WallVisualsProperty.cpp
+
+             third-party/include/BAM/BAMView.cpp
+             third-party/include/serial.cpp
+             third-party/include/hidapi/windows/hid.cpp
+             third-party/include/imgui/imgui_impl_sdl3.cpp
+
+             tests/vpx-test.cpp
+             tests/test-base-render.cpp
+             tests/test-plugin-arrays.cpp
+          )
+
+          target_include_directories(vpxtest PUBLIC
+             ${CMAKE_CURRENT_SOURCE_DIR}
+             ${CMAKE_CURRENT_BINARY_DIR}/$(IntDir)
+             third-party/include
+             third-party/include/win32xx/include
+             third-party/include/compat/msvc
+             src
+             plugins
+          )
+
+          target_precompile_headers(vpxtest PUBLIC src/core/stdafx.h)
+
+          target_compile_definitions(vpxtest PRIVATE
+             ENABLE_BGFX
+             $<$<CONFIG:Debug>:BX_CONFIG_DEBUG=1>
+             $<$<CONFIG:Release>:BX_CONFIG_DEBUG=0>
+          )
+
+          target_link_directories(vpxtest PUBLIC
+             third-party/build-libs/windows-x64
+          )
+
+          target_link_libraries(vpxtest
+             comctl32.lib
+             freeimage64.lib
+             dxguid.lib
+             nvapi.lib
+             winmm.lib
+             hid.lib
+             setupapi.lib
+             openxr_loader64.lib
+             SDL364.lib
+             dinput8.lib
+             bgfx64.lib
+             bimg64.lib
+             bx64.lib
+          )
+
+          set_target_properties(vpxtest PROPERTIES
+             VS_DPI_AWARE "PerMonitor"
+             RUNTIME_OUTPUT_NAME "VPXTest_BGFX64"
+             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:DEBUG>:Debug>"
+          )
+
+          add_custom_command(TARGET vpxtest POST_BUILD
+             COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/src/assets" "$<TARGET_FILE_DIR:vpxtest>/assets"
+             COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/scripts" "$<TARGET_FILE_DIR:vpxtest>/scripts"
+             COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/tests/assets" "$<TARGET_FILE_DIR:vpxtest>/test-assets"
+          )
+
+          if(POST_BUILD_COPY_EXT_LIBS)
+             add_custom_command(TARGET vpxtest POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/third-party/runtime-libs/windows-x64/freeimage64.dll" "$<TARGET_FILE_DIR:vpxtest>"
+                COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/third-party/runtime-libs/windows-x64/openxr_loader64.dll" "$<TARGET_FILE_DIR:vpxtest>"
+                COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/third-party/runtime-libs/windows-x64/SciLexerVP64.dll" "$<TARGET_FILE_DIR:vpxtest>"
+                COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_SOURCE_DIR}/third-party/runtime-libs/windows-x64/SDL364.dll" "$<TARGET_FILE_DIR:vpxtest>"
+             )
+          endif()
+          CMAKEEOF
+
+          cmake -G "Visual Studio 17 2022" -A x64 -B build
+          cmake --build build --config Debug --target vpxtest
+      - name: Run tests
+        run: |
+          cd build/Debug
+          ./VPXTest_BGFX64.exe --test-case="Plugin 2D string and bool array marshalling" --no-breaks 2>&1 || true
+          cat test-assets/test_results.txt 2>/dev/null || echo "No test results file found"

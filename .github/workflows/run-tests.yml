@@ -31,6 +31,9 @@ jobs:
       - name: Build external deps
         run: |
           BUILD_TYPE=Debug ./platforms/windows-x64/external.sh
+      - name: Fetch doctest header
+        run: |
+          curl -sL https://raw.githubusercontent.com/doctest/doctest/v2.4.11/doctest/doctest.h -o tests/doctest.h
       - name: Configure and build test binary
         run: |
           cp make/CMakeLists_bgfx-windows-x64.txt CMakeLists.txt
@@ -181,6 +184,7 @@ jobs:
              third-party/include/compat/msvc
              src
              plugins
+             tests
           )
 
           target_precompile_headers(vpxtest PUBLIC src/core/stdafx.h)
